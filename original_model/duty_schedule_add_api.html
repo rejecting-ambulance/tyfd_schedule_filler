@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <title>勤務排表</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+    }
+    #schedule-container {
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      min-width: 1500px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: center;
+      min-width: 80px;
+      height: 40px;
+    }
+    th {
+      background: #f0f0f0;
+      position: sticky;
+      top: 0;
+    }
+    .droppable {
+      background: #f9f9f9;
+      vertical-align: top;
+    }
+    .droppable.highlight {
+      border: 2px solid #4CAF50;
+      background: #eaffea;
+    }
+
+    #personnel {
+      width: 400px;
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    .person-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(10, 1fr);
+      gap: 5px;
+    }
+    .person {
+      background: #888;
+      color: white;
+      padding: 6px;
+      text-align: center;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+    }
+    .person.active {
+      background: #4CAF50;
+    }
+
+    .card {
+      background: #007BFF;
+      color: white;
+      padding: 4px 6px;
+      border-radius: 5px;
+      cursor: grab;
+      font-size: 12px;
+      margin: 2px 0;
+      display: inline-block;
+    }
+    .card:active {
+      cursor: grabbing;
+    }
+
+    button, select {
+      margin-top: 10px;
+      padding: 6px 10px;
+      background: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    select {
+      background: white;
+      color: black;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+
+<div id="schedule-container">
+  <table id="schedule">
+    <thead>
+      <tr id="header-row">
+        <th>時段</th>
+        <th contenteditable="true">值班</th>
+        <th contenteditable="true">勤務A</th>
+        <th contenteditable="true">勤務B</th>
+        <th contenteditable="true">勤務C</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div id="personnel">
+  <h3>模板選擇</h3>
+  <select id="templateSelect">
+    <option value="">請選擇模板</option>
+  </select>
+
+  <h3>人員 (點擊啟用 / 停用)</h3>
+  <div class="person-grid" id="personGrid"></div>
+
+  <button id="assignPersons">排班</button>
+</div>
+
+<script>
+const schedule = document.getElementById("schedule");
+const headerRow = document.getElementById("header-row");
+const tbody = document.querySelector("#schedule tbody");
+const personGrid = document.getElementById("personGrid");
+
+const API_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLhS81JcFZI5SBkx2UFI3wB4niAAG6KBMzotYueNwfW9ew7McpED4gFhP0-OTkbQPRk5l_Il2Y451wdCinHvKEqIhfkAghM7sc2YMVRFKPr-LHAOoCw259IGlbXXeNE5WnvST-Chm8IAwdf0KnI7WLX8w3H1tszxVyd18jECsgZtbSeU6ZlxIPuEpUiIp-aUqIvv2j38kLo2rCU7wfSuCdCnDLcJ09cyHr74DhRGERiYuF0h_2bxRbM-uwAyWrHTXCIAPZTsH0EFECextCP1gn6IoNdxZQ&lib=MCLDCMTFz-sB4F7VmQIL-Ie-Iy_o6_Hq8";
+
+let templateData = {};
+let currentTemplate = null;
+
+// 加備1~備11
+for (let i=1;i<=11;i++){
+  let th = document.createElement("th");
+  th.textContent = "備"+i;
+  headerRow.appendChild(th);
+}
+
+// 生成時段與表格欄位
+for (let i=0;i<24;i++){
+  let hour=(8+i)%24;
+  let timeLabel=(hour<10?"0":"")+hour+":00";
+  let tr=document.createElement("tr");
+
+  // 時段欄
+  let timeCell=document.createElement("td");
+  timeCell.textContent=timeLabel;
+  tr.appendChild(timeCell);
+
+  // 值班 + 勤務A/B/C (4欄)
+  for(let j=0;j<4;j++){
+    let td=document.createElement("td");
+    td.className="droppable";
+    td.dataset.time=timeLabel;
+    tr.appendChild(td);
+  }
+
+  // 備1~備11
+  for(let j=1;j<=11;j++){
+    let td=document.createElement("td");
+    td.className="droppable";
+    td.dataset.time=timeLabel;
+    tr.appendChild(td);
+  }
+  tbody.appendChild(tr);
+}
+
+// 生成人員30人
+let totalPeople=30,colCount=3,rowCount=10;
+for(let row=0;row<rowCount;row++){
+  for(let col=0;col<colCount;col++){
+    let idx=row+col*rowCount+1;
+    if(idx<=totalPeople){
+      let div=document.createElement("div");
+      div.className="person";
+      div.textContent="人員"+idx;
+      div.dataset.name="人員"+idx;
+      personGrid.appendChild(div);
+    }
+  }
+}
+
+// 更新字母
+function updateOrder(){
+  let activePersons=[...document.querySelectorAll(".person.active")];
+  activePersons.forEach((p,idx)=>{
+    let letter=String.fromCharCode(65+idx);
+    p.dataset.letter=letter;
+    p.textContent=p.dataset.name+" ("+letter+")";
+  });
+  document.querySelectorAll(".person:not(.active)").forEach(p=>{
+    p.textContent=p.dataset.name;
+    delete p.dataset.letter;
+  });
+}
+
+// 點人員切換
+document.querySelectorAll(".person").forEach(p=>{
+  p.addEventListener("click",()=>{
+    p.classList.toggle("active");
+    updateOrder();
+  });
+});
+
+// 建立卡片
+function createCard(name){
+  let card=document.createElement("div");
+  card.className="card";
+  card.textContent=name;
+  card.draggable=true;
+  card.addEventListener("dragstart",e=>{
+    e.dataTransfer.setData("text/plain",name);
+    card.classList.add("dragging");
+    setTimeout(()=>card.style.display="none",0);
+  });
+  card.addEventListener("dragend",()=>{
+    card.classList.remove("dragging");
+    card.style.display="inline-block";
+  });
+  return card;
+}
+
+// 設定拖放
+function makeDroppable(cell){
+  cell.addEventListener("dragover",e=>{
+    e.preventDefault();
+    cell.classList.add("highlight");
+  });
+  cell.addEventListener("dragleave",()=>cell.classList.remove("highlight"));
+  cell.addEventListener("drop",e=>{
+    e.preventDefault();
+    cell.classList.remove("highlight");
+    let name=e.dataTransfer.getData("text/plain");
+    if(name){
+      document.querySelectorAll(".card.dragging").forEach(c=>c.remove());
+      cell.appendChild(createCard(name));
+    }
+  });
+}
+document.querySelectorAll(".droppable").forEach(makeDroppable);
+
+// 載入模板
+async function loadTemplates(){
+  try{
+    let res=await fetch(API_URL);
+    templateData=await res.json();
+    let select=document.getElementById("templateSelect");
+    Object.keys(templateData).forEach(key=>{
+      let opt=document.createElement("option");
+      opt.value=key;
+      opt.textContent=key;
+      select.appendChild(opt);
+    });
+  }catch(e){console.error("讀取模板失敗:",e);}
+}
+
+// 套用模板
+document.getElementById("templateSelect").addEventListener("change",()=>{
+  let key=document.getElementById("templateSelect").value;
+  if(!key||!templateData[key]) return;
+  currentTemplate=templateData[key];
+
+  // 取得表格欄位名稱
+  let headers=[...headerRow.querySelectorAll("th")].map(th=>th.textContent.trim());
+
+  // 清空表格
+  document.querySelectorAll("#schedule tbody tr").forEach(tr=>{
+    tr.querySelectorAll("td").forEach((td,idx)=>{
+      if(idx>0) td.innerHTML="";
+    });
+  });
+
+  // 填入模板
+  currentTemplate.forEach(item=>{
+    let hour=item["時段"];
+    if(hour===0||hour===24) hour=0;
+    let time=(hour<10?"0":"")+hour+":00";
+    let tr=[...document.querySelectorAll("#schedule tbody tr")].find(r=>r.firstChild.textContent===time);
+    if(tr){
+      headers.forEach((header,idx)=>{
+        if(item[header]){
+          let td=tr.querySelectorAll("td")[idx];
+          if(td) td.textContent=item[header];
+        }
+      });
+    }
+  });
+});
+
+// 排班字母轉卡片
+document.getElementById("assignPersons").addEventListener("click",()=>{
+  if(!currentTemplate){alert("請先選擇模板！"); return;}
+  let letterMap={};
+  document.querySelectorAll(".person.active").forEach(p=>{
+    if(p.dataset.letter) letterMap[p.dataset.letter]=p.dataset.name;
+  });
+  document.querySelectorAll("#schedule tbody tr").forEach(tr=>{
+    tr.querySelectorAll("td").forEach((td,idx)=>{
+      if(idx>0 && td.textContent){
+        let letter=td.textContent;
+        if(letterMap[letter]){
+          td.innerHTML="";
+          td.appendChild(createCard(letterMap[letter]));
+        }
+      }
+    });
+  });
+});
+
+loadTemplates();
+</script>
+</body>
+</html>

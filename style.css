@@ -1,0 +1,204 @@
+/* 基本排版 */
+body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+}
+#schedule-container {
+    overflow-x: auto; /* 讓表格可以水平滾動 */
+}
+#personnel {
+    width: 300px;
+    border: 1px solid #ccc;
+    padding: 10px;
+    flex-shrink: 0; /* 防止人員區在表格過寬時縮小 */
+}
+
+/* 網格佈局 */
+.person-grid {
+    display: grid;
+    /* 使用 minmax 確保卡片寬度至少為 90px，且最大不超過 1fr */
+    grid-template-columns: repeat(3, minmax(70px, 1fr));
+    grid-template-rows: repeat(10, 1fr);
+    gap: 5px;
+}
+
+/* 人員卡片樣式 */
+.person {
+    background: #e0e0e0;
+    color: #333;
+    padding: 6px;
+    text-align: center;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    user-select: none;
+    box-sizing: border-box; /* 確保 padding 不會撐大卡片尺寸 */
+    display: flex;
+    flex-direction: column; /* 讓姓名和選單垂直排列 */
+    justify-content: center;
+    align-items: center;
+    gap: 4px; /* 增加姓名和選單之間的間距 */
+    transition: background-color 0.2s;
+}
+
+.person.active {
+    background: #4CAF50;
+    color: white;
+}
+
+/* 這裡就是你要求的修改 */
+.person .letter-select {
+    width: 100%; /* 選單寬度設為卡片寬度的50% */
+    font-size: 11px; /* 調整選單字體大小以適應卡片 */
+    box-sizing: border-box;
+    background-color: white;
+    color: black;
+}
+
+.person span {
+    font-weight: bold;
+    white-space: nowrap; /* 防止姓名換行 */
+}
+
+/* 表格樣式 */
+table {
+    border-collapse: collapse;
+    min-width: 1500px;
+}
+th, td {
+    border: 1px solid #ccc;
+    padding: 6px;
+    text-align: center;
+    min-width: 50px;
+    height: 30px;
+}
+th {
+    background: #f0f0f0;
+    position: sticky;
+    top: 0;
+}
+.droppable {
+    background: #f9f9f9;
+    vertical-align: top;
+}
+.droppable.highlight {
+    border: 2px solid #4CAF50;
+    background: #eaffea;
+}
+
+/* 卡片樣式 */
+.card {
+    background: #007BFF;
+    color: white;
+    padding: 4px 6px;
+    border-radius: 5px;
+    cursor: grab;
+    font-size: 12px;
+    margin: 2px 0;
+    display: inline-block;
+    position: relative;
+}
+.card:active {
+    cursor: grabbing;
+}
+.card .remove-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #f44336;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+.card:hover .remove-btn {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* 按鈕與選單 */
+button, select {
+    margin-top: 10px;
+    padding: 6px 10px;
+    background: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+button:hover {
+    background: #0056b3;
+}
+select {
+    background: white;
+    color: black;
+    border: 1px solid #ccc;
+}
+
+/* 新增的模式開關樣式 */
+.mode-switch-container {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.mode-switch-container label {
+    color: #555;
+    font-size: 14px;
+}
+
+/* 新增的滑動開關樣式 */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 20px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 20px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 2px;
+    bottom: 2px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: #2196F3;
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
