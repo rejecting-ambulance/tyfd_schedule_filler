@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const assignPersonsBtn = document.getElementById("assignPersons");
     const downloadExcelBtn = document.getElementById("downloadExcelBtn");
     const modeSwitch = document.getElementById("modeSwitch"); 
+    const dateDisplayCell = document.getElementById('dateDisplayCell');
 
     // Google Apps Script API 網址
     const API_URL = "https://script.google.com/macros/s/AKfycbx1Hmh7WpqrEpPtahVY7y2-wZnd5KChxuzmlA4o7Ld02SugyAOZabmLDLKPlQVuTt-O/exec";
@@ -23,8 +24,70 @@ document.addEventListener('DOMContentLoaded', () => {
     let templateLetters = []; 
     const fixedOptions = ["輪休", "補休", "公假"]; 
 
-    // --- 1. 初始化人員清單 (表格初始化現在由模板載入處理) ---
-    // 生成人員清單 (30人)
+    // --- 日期處理函式 ---
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        const weekday = ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+        const mingGuoYear = year - 1911;
+        return `${mingGuoYear}年${month}月${day} 星期${weekday}`;
+    }
+
+    function generateDateOptions() {
+        const today = new Date();
+        const options = [];
+
+        // 前1天
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+        options.push({ value: yesterday.toISOString(), text: formatDate(yesterday) });
+
+        // 今天
+        options.push({ value: today.toISOString(), text: formatDate(today) });
+
+        // 後7天
+        for (let i = 1; i <= 7; i++) {
+            const nextDay = new Date(today);
+            nextDay.setDate(today.getDate() + i);
+            options.push({ value: nextDay.toISOString(), text: formatDate(nextDay) });
+        }
+
+        return options;
+    }
+
+    function setupDateSelect() {
+        const dateSelectContainer = document.getElementById('dateSelectContainer');
+        const dateOptions = generateDateOptions();
+        const selectElement = document.createElement('select');
+        selectElement.id = 'dateSelect';
+        
+        dateOptions.forEach(option => {
+            const opt = document.createElement("option");
+            opt.value = option.value;
+            opt.textContent = option.text;
+            selectElement.appendChild(opt);
+        });
+
+        // 預設選中今天
+        selectElement.value = new Date().toISOString();
+        
+        // 插入下拉選單
+        dateSelectContainer.appendChild(selectElement);
+        
+        // 綁定變更事件
+        selectElement.addEventListener('change', (e) => {
+            dateDisplayCell.textContent = e.target.options[e.target.selectedIndex].textContent;
+        });
+
+        // 初始化表格的日期顯示
+        dateDisplayCell.textContent = dateOptions[1].text;
+    }
+    
+    setupDateSelect();
+
+
+    // --- 1. 初始化人員清單 ---
     let totalPeople = 30,
         colCount = 3,
         rowCount = 10;
@@ -37,16 +100,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.dataset.name = "人員" + idx;
                 div.dataset.letter = "輪休"; 
 
-                // 創建兩行的排版結構
                 const nameSpan = document.createElement("span");
                 nameSpan.textContent = "人員" + idx;
                 div.appendChild(nameSpan);
 
-                // 創建選單
                 const select = document.createElement("select");
                 select.className = "letter-select";
 
-                // 加入固定選項
                 fixedOptions.forEach(optionText => {
                     const option = document.createElement("option");
                     option.value = optionText;
@@ -54,17 +114,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     select.appendChild(option);
                 });
 
-                // 綁定選單變更事件
                 select.addEventListener("change", (e) => {
                     const selectedLetter = e.target.value;
-                    // 如果已有人員選了此字母，則重設該人員的選擇
                     document.querySelectorAll(".person").forEach(otherP => {
                         if (otherP !== div && otherP.dataset.letter === selectedLetter && !fixedOptions.includes(selectedLetter)) {
                             otherP.dataset.letter = fixedOptions[0];
                             const otherSelect = otherP.querySelector(".letter-select");
                             if (otherSelect) {
                                 otherSelect.value = fixedOptions[0];
-                                // 更新另一個人員的選單選項
                                 updateSelectOptionsForPerson(otherP);
                             }
                         }
@@ -73,15 +130,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 div.appendChild(select);
-
-                // 為人員卡片加上拖曳事件
                 div.draggable = true;
                 div.addEventListener("dragstart", e => {
                     e.dataTransfer.setData("text/plain", div.dataset.name);
                     e.dataTransfer.setData(DRAG_TYPE, div.dataset.name);
-                    draggedElement = div; // 儲存拖曳的元素
+                    draggedElement = div; 
                 });
-
                 personGrid.appendChild(div);
             }
         }
@@ -91,44 +145,33 @@ document.addEventListener('DOMContentLoaded', () => {
     function createCard(name) {
         let card = document.createElement("div");
         card.className = "card";
-        // 儲存實際的姓名，而不是textContent
         card.dataset.personName = name;
-        
-        // 創建一個 span 來顯示姓名，這樣 removeBtn 的 x 就不會混入其中
         const nameSpan = document.createElement("span");
         nameSpan.textContent = name;
         card.appendChild(nameSpan);
-
         card.draggable = true;
         card.addEventListener("dragstart", e => {
             e.dataTransfer.setData("text/plain", name);
             e.dataTransfer.setData(DRAG_TYPE, name);
-            draggedElement = card; // 儲存拖曳的元素
+            draggedElement = card; 
             setTimeout(() => card.style.display = "none", 0);
         });
         card.addEventListener("dragend", () => {
-            // 如果拖曳結束後元素還在，才顯示出來
             if (card.parentNode) {
                 card.style.display = "inline-block";
             }
         });
 
-        // 新增: 移除按鈕功能
         let removeBtn = document.createElement("div");
         removeBtn.className = "remove-btn";
         removeBtn.textContent = "x";
-
-        // 點擊事件，刪除卡片
         removeBtn.addEventListener("click", () => {
             card.remove();
         });
-
         card.appendChild(removeBtn);
-
         return card;
     }
 
-    // 統一處理可拖曳區域的函式
     function makeDroppable(cell) {
         cell.addEventListener("dragover", e => {
             if (!e.dataTransfer.types.includes(DRAG_TYPE)) {
@@ -138,60 +181,43 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             cell.classList.add("highlight");
         });
-
         cell.addEventListener("dragleave", () => cell.classList.remove("highlight"));
-
         cell.addEventListener("drop", e => {
             e.preventDefault();
             cell.classList.remove("highlight");
             let name = e.dataTransfer.getData(DRAG_TYPE);
             
-            // 確保有拖曳元素
             if (!draggedElement) {
                 return;
             }
 
             const isFromPersonnel = draggedElement.classList.contains("person");
-            
-            // 根據模式開關決定是替換還是新增/交換
             const isAppendMode = modeSwitch.checked;
 
             if (isFromPersonnel) {
-                // 從人員清單拖曳：直接新增卡片，不理會模式
                 if (!isAppendMode) {
-                    // 單卡片模式，先移除舊卡片
                     if (cell.querySelector(".card")) {
                         cell.querySelector(".card").remove();
                     }
                 }
                 cell.appendChild(createCard(name));
             } else {
-                // 從排班表拖曳：處理移動或交換
                 const targetCard = cell.querySelector(".card");
-                
                 if (isAppendMode) {
-                    // 多卡片模式：新增卡片並移除原卡片
                     cell.appendChild(createCard(name));
                     draggedElement.remove();
                 } else {
-                    // 單卡片模式：交換卡片
-                    // 1. 取得原拖曳卡片的父元素 (原始儲存格)
                     const originalParent = draggedElement.parentNode;
-                    // 2. 如果目標儲存格有卡片，將其插入到原儲存格
                     if (targetCard) {
                         originalParent.appendChild(targetCard);
                     }
-                    // 3. 將原拖曳卡片插入到目標儲存格
                     cell.appendChild(draggedElement);
                 }
             }
-            
-            // 重設拖曳元素
             draggedElement = null;
         });
     }
 
-    // 點擊人員卡片，切換 active 樣式並更新選單選項
     document.querySelectorAll(".person").forEach(p => {
         p.addEventListener("click", (event) => {
             if (event.target.tagName === 'SELECT') {
@@ -202,15 +228,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // 修正: 全域監聽拖曳開始事件，只允許特定元素拖曳
     document.addEventListener("dragstart", (e) => {
-        // 如果拖曳的不是卡片或人員，阻止拖曳
         if (!e.target.classList.contains("card") && !e.target.classList.contains("person")) {
             e.preventDefault();
         }
     });
 
-    // 修正: 全域監聽拖曳進入事件，明確阻止拖曳到不可放置區域
     document.addEventListener("dragenter", (e) => {
         const target = e.target;
         if (!e.dataTransfer.types.includes(DRAG_TYPE)) {
@@ -218,12 +241,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 修正: 全域監聽拖曳經過事件，明確阻止拖曳到不可放置區域
     document.addEventListener("dragover", (e) => {
         const target = e.target;
         if (
             !e.dataTransfer.types.includes(DRAG_TYPE) ||
-            !target.classList.contains('droppable') ||
             target.tagName === 'TH' ||
             target.getAttribute("contenteditable") === "true"
         ) {
@@ -251,7 +272,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 尋找模板中所有排班代號
     function findLettersInTemplate(templateData) {
         const letters = new Set();
         if (templateData && templateData.data) {
@@ -273,18 +293,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return Array.from(letters).sort();
     }
 
-    // 根據 active 狀態更新單個人員的選單選項
     function updateSelectOptionsForPerson(personDiv) {
         const select = personDiv.querySelector(".letter-select");
         if (!select) return;
 
-        // 移除所有舊選項
         while (select.options.length > 0) {
             select.remove(0);
         }
 
         if (personDiv.classList.contains("active")) {
-            // 已選取狀態，顯示「代號」和排班代號
             const emptyOption = document.createElement("option");
             emptyOption.value = "";
             emptyOption.textContent = "代號";
@@ -296,27 +313,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 option.textContent = letter;
                 select.appendChild(option);
             });
-            // 預設選回原本的代號，如果有的話
             if (personDiv.dataset.letter && !fixedOptions.includes(personDiv.dataset.letter)) {
                 select.value = personDiv.dataset.letter;
             } else {
-                // 如果原本是休假，則改為選取「代號」
                 personDiv.dataset.letter = "";
                 select.value = "";
             }
         } else {
-            // 未選取狀態，顯示休假選項
             fixedOptions.forEach(optionText => {
                 const option = document.createElement("option");
                 option.value = optionText;
                 option.textContent = optionText;
                 select.appendChild(option);
             });
-            // 預設選回原本的休假選項，如果有的話
             if (personDiv.dataset.letter && fixedOptions.includes(personDiv.dataset.letter)) {
                 select.value = personDiv.dataset.letter;
             } else {
-                // 如果原本是排班代號，則改回「輪休」
                 personDiv.dataset.letter = fixedOptions[0];
                 select.value = fixedOptions[0];
             }
@@ -328,27 +340,30 @@ document.addEventListener('DOMContentLoaded', () => {
         const key = templateSelect.value;
         if (!key || !templateData[key]) return;
         currentTemplate = templateData[key];
-
-        // 每次選取新模板時，更新可選取的字母清單並更新所有下拉選單
+        
+        // **修正：這裡新增了讀取模板代號的邏輯**
         templateLetters = findLettersInTemplate(currentTemplate);
 
-        // 清空表頭和表格內容
+        // 1. 取得並保留固定的表頭行
         const fixedHeaderRows = Array.from(thead.querySelectorAll('tr')).slice(0, 2);
+
+        // 2. 清空表頭和表格內容
         thead.innerHTML = '';
-        fixedHeaderRows.forEach(row => thead.appendChild(row));
         tbody.innerHTML = '';
 
-        // 重設所有人員狀態
+        // 3. 重新附加固定的表頭行
+        fixedHeaderRows.forEach(row => thead.appendChild(row));
+
+        // 重置所有人員的狀態
         document.querySelectorAll(".person").forEach(p => {
             p.classList.remove("active");
             p.dataset.letter = "輪休";
             updateSelectOptionsForPerson(p); 
         });
 
-        // 動態生成表頭 (包含合併儲存格)
-        const headers = currentTemplate.headers;
+        // 4. 處理並渲染來自模板的新表頭 (thead)
+        const headers = JSON.parse(JSON.stringify(currentTemplate.headers));
 
-        // 步驟1: 處理通用垂直合併 (rowspan)
         for (let i = 0; i < headers.length; i++) {
             for (let j = 0; j < headers[i].length; j++) {
                 if (headers[i][j] === "VISITED" || headers[i][j] === "") {
@@ -370,15 +385,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         }
-
-        // 步驟2: 處理針對性水平合併 (colspan) - 第7欄到第20欄
         for (let i = 0; i < headers.length; i++) {
-            for (let j = 6; j < Math.min(20, headers[i].length); j++) {
+            for (let j = 0; j < headers[i].length; j++) {
                 if (headers[i][j] === "VISITED" || headers[i][j] === "") {
                     continue;
                 }
                 let colspan = 1;
-                for (let k = j + 1; k < Math.min(20, headers[i].length); k++) {
+                for (let k = j + 1; k < headers[i].length; k++) {
                     if (headers[i][k] === "" && headers[i][k] !== "VISITED") {
                         colspan++;
                     } else {
@@ -400,81 +413,280 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 步驟3: 處理通用水平合併 (colspan) - 其他欄位
-        for (let i = 0; i < headers.length; i++) {
-            for (let j = 0; j < headers[i].length; j++) {
-                if (headers[i][j] === "VISITED" || (j >= 6 && j < 20)) {
-                    continue;
-                }
-                let colspan = 1;
-                for (let k = j + 1; k < headers[i].length; k++) {
-                    if (headers[i][k] === "" && headers[i][k] !== "VISITED" && (k < 6 || k >= 20)) {
-                        colspan++;
-                    } else {
-                        break;
-                    }
-                }
-                if (colspan > 1) {
-                    if (typeof headers[i][j] === 'object') {
-                        headers[i][j].colspan = colspan;
-                    } else {
-                        headers[i][j] = { text: headers[i][j], colspan: colspan };
-                    }
-                    for (let c = j + 1; c < j + colspan; c++) {
-                        if (c < headers[i].length) {
-                            headers[i][c] = "VISITED";
-                        }
-                    }
-                }
-            }
-        }
-
-        // 步驟4: 生成 HTML
         for (let i = 0; i < headers.length; i++) {
             const tr = document.createElement("tr");
-            let cellCount = 0;
+            let originalCellIndex = 0;
             for (let j = 0; j < headers[i].length; j++) {
                 const headerCell = headers[i][j];
-                if (headerCell === "VISITED" || headerCell === "") {
+                
+                if (headerCell === "VISITED" || headerCell === "" || headerCell === null) {
                     continue;
                 }
 
-                const headerText = typeof headerCell === 'object' ? headerCell.text : headerCell;
-                const th = document.createElement("th");
-                th.textContent = headerText;
-                th.draggable = false;
+                if (i === 0 && originalCellIndex === 6) {
+                    const newTh = document.createElement('th');
+                    newTh.textContent = '在隊訓練(一)';
+                    newTh.setAttribute('rowspan', '3');
+                    tr.appendChild(newTh);
+                    const newTh2 = document.createElement('th');
+                    newTh2.textContent = '在隊訓練(二)';
+                    newTh2.setAttribute('rowspan', '3');
+                    tr.appendChild(newTh2);
+                    originalCellIndex += 2;
+                    
+                    newTh.classList.add('fixed-width-th');
+                    newTh2.classList.add('fixed-width-th');
+                }
 
+                const th = document.createElement("th");
+                th.textContent = (typeof headerCell === 'object' ? headerCell.text : headerCell);
+                th.draggable = false;
+                
                 if (i < 2 && j >= 1 && j <= 5) {
                     th.setAttribute("contenteditable", "true");
                 }
-
+                
                 if (typeof headerCell === 'object') {
                     if (headerCell.rowspan) th.setAttribute("rowspan", headerCell.rowspan);
                     if (headerCell.colspan) th.setAttribute("colspan", headerCell.colspan);
                 }
 
+                th.classList.add('fixed-width-th');
+
                 tr.appendChild(th);
-                cellCount++;
+                originalCellIndex++;
+            }
+
+            if (i === 0) {
+                const newTh3 = document.createElement('th');
+                newTh3.textContent = '勤務輪流順序與服勤人員對照表';
+                newTh3.setAttribute('rowspan', '2');
+                newTh3.setAttribute('colspan', '8');
+                tr.appendChild(newTh3);
+                newTh3.classList.add('fixed-width-th');
+            }
+            if (i === 2) {
+                const titles = ['編號', '姓名', '編號', '姓名', '編號', '姓名', '編號', '姓名'];
+                titles.forEach(text => {
+                    const th = document.createElement('th');
+                    th.textContent = text;
+                    th.classList.add('fixed-width-th');
+                    tr.appendChild(th);
+                });
             }
             thead.appendChild(tr);
         }
+        
+        // 5. 處理並渲染表格主體 (tbody)
+        
+        const topFixedData = [
+            { time: '07:30    08:00', content: '車輛器材保養環境清理', colspan: 25 },
+            { time: '08:00    08:30', content: '勤前教育', colspan: 25 }
+        ];
 
-        // 動態生成表格內容 (時段與排班內容)
-        currentTemplate.data.forEach(rowData => {
-            const tr = document.createElement("tr");
-            rowData.forEach((cellContent, cellIndex) => {
-                const td = document.createElement("td");
-                td.textContent = cellContent;
-
-                if (cellIndex >= 1) {
-                    td.className = "droppable";
-                    makeDroppable(td);
-                }
-
-                tr.appendChild(td);
-            });
+        topFixedData.forEach(item => {
+            const tr = document.createElement('tr');
+            const cell1 = document.createElement('td');
+            cell1.textContent = item.time;
+            tr.appendChild(cell1);
+            const cell2 = document.createElement('td');
+            cell2.textContent = item.content;
+            cell2.setAttribute('colspan', item.colspan);
+            tr.appendChild(cell2);
+            for (let i = 0; i < 8; i++) {
+                const emptyCell = document.createElement('td');
+                emptyCell.setAttribute('contenteditable', 'true');
+                tr.appendChild(emptyCell);
+            }
             tbody.appendChild(tr);
         });
+
+        currentTemplate.data.forEach((rowData, rowIndex) => {
+            const tr = document.createElement("tr");
+            rowData.forEach((cellContent, dataIndex) => {
+                const td = document.createElement("td");
+                td.textContent = cellContent;
+                td.className = "droppable";
+                makeDroppable(td);
+                tr.appendChild(td);
+
+                if (dataIndex === 5) {
+                    if (rowIndex === 0 || rowIndex === 6 || rowIndex === 13) {
+                        const newTd1 = document.createElement("td");
+                        newTd1.setAttribute("contenteditable", "true");
+                        const newTd2 = document.createElement("td");
+                        newTd2.setAttribute("contenteditable", "true");
+                        
+                        let rowspanValue = 0;
+                        if (rowIndex === 0) {
+                            rowspanValue = 6;
+                            newTd1.textContent = '0900~1100';
+                            newTd2.textContent = '1400~1600';
+                        } else if (rowIndex === 6) {
+                            rowspanValue = 7;
+                        } else if (rowIndex === 13) {
+                            rowspanValue = 11;
+                        }
+                        if (rowspanValue > 0) {
+                            newTd1.setAttribute("rowspan", rowspanValue);
+                            newTd2.setAttribute("rowspan", rowspanValue);
+                        }
+                        tr.appendChild(newTd1);
+                        tr.appendChild(newTd2);
+                    }
+                }
+            });
+            
+            if(rowIndex === 13) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.textContent = '備勤';
+                tr.appendChild(finalTd1);
+
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.setAttribute('colspan', '6');
+                finalTd2.textContent = '';
+                tr.appendChild(finalTd2);
+                
+                const finalTd3 = document.createElement('td');
+                finalTd3.setAttribute('contenteditable', 'true');
+                finalTd3.textContent = '';
+                tr.appendChild(finalTd3);
+            } else if(rowIndex === 14) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.textContent = '輪休';
+                tr.appendChild(finalTd1);
+                
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.setAttribute('colspan', '7');
+                finalTd2.textContent = '';
+                tr.appendChild(finalTd2);
+            } else if(rowIndex === 15) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.textContent = '請休';
+                tr.appendChild(finalTd1);
+                
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.setAttribute('colspan', '3');
+                finalTd2.textContent = '';
+                tr.appendChild(finalTd2);
+
+                const finalTd3 = document.createElement('td');
+                finalTd3.setAttribute('contenteditable', 'true');
+                finalTd3.textContent = '補休';
+                tr.appendChild(finalTd3);
+                
+                const finalTd4 = document.createElement('td');
+                finalTd4.setAttribute('contenteditable', 'true');
+                finalTd4.setAttribute('colspan', '3');
+                finalTd4.textContent = '';
+                tr.appendChild(finalTd4);
+            } else if(rowIndex === 16) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.textContent = '公假';
+                tr.appendChild(finalTd1);
+                
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.setAttribute('colspan', '3');
+                finalTd2.textContent = '';
+                tr.appendChild(finalTd2);
+
+                const finalTd3 = document.createElement('td');
+                finalTd3.setAttribute('contenteditable', 'true');
+                finalTd3.textContent = '月輪休';
+                tr.appendChild(finalTd3);
+                
+                const finalTd4 = document.createElement('td');
+                finalTd4.setAttribute('contenteditable', 'true');
+                finalTd4.setAttribute('colspan', '3');
+                finalTd4.textContent = '';
+                tr.appendChild(finalTd4);
+            } else if(rowIndex === 17) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.textContent = '停休';
+                tr.appendChild(finalTd1);
+                
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.setAttribute('colspan', '7');
+                finalTd2.textContent = '';
+                tr.appendChild(finalTd2);
+            } else if(rowIndex === 18) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.textContent = '其他';
+                tr.appendChild(finalTd1);
+                
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.setAttribute('colspan', '7');
+                finalTd2.textContent = '';
+                tr.appendChild(finalTd2);
+            } else if(rowIndex === 19) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.setAttribute('colspan', '8');
+                finalTd1.textContent = '勤務變更紀錄';
+                tr.appendChild(finalTd1);
+            } else if(rowIndex === 20) {
+                const finalTd1 = document.createElement('td');
+                finalTd1.setAttribute('contenteditable', 'true');
+                finalTd1.setAttribute('colspan', '2');
+                finalTd1.textContent = '人員姓名';
+                tr.appendChild(finalTd1);
+                
+                const finalTd2 = document.createElement('td');
+                finalTd2.setAttribute('contenteditable', 'true');
+                finalTd2.textContent = '原定勤務';
+                tr.appendChild(finalTd2);
+
+                const finalTd3 = document.createElement('td');
+                finalTd3.setAttribute('contenteditable', 'true');
+                finalTd3.textContent = '變更勤務';
+                tr.appendChild(finalTd3);
+                
+                const finalTd4 = document.createElement('td');
+                finalTd4.setAttribute('contenteditable', 'true');
+                finalTd4.setAttribute('colspan', '2');
+                finalTd4.textContent = '變更原因';
+                tr.appendChild(finalTd4);
+                
+                const finalTd5 = document.createElement('td');
+                finalTd5.setAttribute('contenteditable', 'true');
+                finalTd5.setAttribute('colspan', '2');
+                finalTd5.textContent = '主管核章';
+                tr.appendChild(finalTd5);
+            } else {
+                for(let i=0; i<8; i++) {
+                    const finalTd = document.createElement('td');
+                    finalTd.setAttribute('contenteditable', 'true');
+                    tr.appendChild(finalTd);
+                }
+            }         
+            tbody.appendChild(tr);
+        });
+
+        // 6. 新增底部「備註」欄位
+        const lastExtraRow = document.createElement('tr');
+        const lastCell = document.createElement('td');
+        lastCell.textContent = '備註';
+        lastCell.setAttribute('contenteditable', 'true');
+        lastExtraRow.appendChild(lastCell);
+
+        const mergedCell3 = document.createElement('td');
+        mergedCell3.textContent = '';
+        mergedCell3.setAttribute('contenteditable', 'true');
+        mergedCell3.setAttribute('colspan', '33'); 
+        lastExtraRow.appendChild(mergedCell3);
+        tbody.appendChild(lastExtraRow);
     });
 
     // --- 4. 點擊按鈕，將字母轉換為人員卡片 ---
@@ -485,8 +697,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const letterMap = {};
-        // 根據所有人員的下拉選單選擇來建立 letterMap
-        document.querySelectorAll(".person").forEach(p => {
+        document.querySelectorAll(".person.active").forEach(p => {
             const letter = p.dataset.letter;
             if (letter) {
                 letterMap[letter] = p.dataset.name;
@@ -501,7 +712,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (bracketMatch) {
                     letter = bracketMatch[1].trim();
                 } else if (cellText !== "") {
-                    letter = cellText;
+                    // **修正：這裡新增了對非括號文字的檢查**
+                    const foundLetter = templateLetters.find(l => l === cellText);
+                    if (foundLetter) {
+                        letter = foundLetter;
+                    }
                 }
 
                 if (letter && letterMap[letter]) {
@@ -520,13 +735,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // 步驟1: 建立一個工作表物件
         const ws = {};
-        // 設定欄寬 (例如: 26欄，從A到Z)
-        ws['!cols'] = Array.from({ length: 26 }, () => ({ width: 10 }));
-        ws['!cols'][0] = { width: 15 }; // 第一欄寬度設為15
+        const occupiedCells = [];
 
-        // 步驟2: 讀取 HTML 表格內容並填入工作表物件
+        ws['!cols'] = Array.from({ length: 26 }, () => ({ width: 10 }));
+        ws['!cols'][0] = { width: 15 }; 
+
         const allRows = table.querySelectorAll('tr');
         
         allRows.forEach((row, rowIndex) => {
@@ -534,58 +748,64 @@ document.addEventListener('DOMContentLoaded', () => {
             let colIndex = 0;
 
             cells.forEach((cell) => {
-                // 處理合併儲存格
                 const colspan = parseInt(cell.getAttribute('colspan') || '1', 10);
                 const rowspan = parseInt(cell.getAttribute('rowspan') || '1', 10);
 
-                // 找到下一個沒有被合併的儲存格
-                while (ws[XLSX.utils.encode_cell({ c: colIndex, r: rowIndex })]) {
+                while (occupiedCells[rowIndex] && occupiedCells[rowIndex][colIndex]) {
                     colIndex++;
                 }
 
                 const cellRef = XLSX.utils.encode_cell({ c: colIndex, r: rowIndex });
                 
                 let cellText = cell.textContent.trim();
-                // 如果是卡片，取得 data-person-name
+                
                 if (cell.querySelector('.card')) {
                     const cards = cell.querySelectorAll('.card');
                     cellText = Array.from(cards).map(card => card.dataset.personName).join(', ');
+                } else if (cell.id === 'dateDisplayCell') {
+                    cellText = cell.textContent.trim();
                 }
 
-                // 將資料寫入工作表
                 ws[cellRef] = { v: cellText };
 
-                // 設定樣式 (例如：將第一列和第二列設為粗體)
                 if (rowIndex < 2) {
                     ws[cellRef].s = { font: { bold: true } };
                 }
 
-                // 處理合併
                 if (rowspan > 1 || colspan > 1) {
                     if (!ws['!merges']) ws['!merges'] = [];
                     ws['!merges'].push({
                         s: { r: rowIndex, c: colIndex },
                         e: { r: rowIndex + rowspan - 1, c: colIndex + colspan - 1 }
                     });
+
+                    for (let r = rowIndex; r < rowIndex + rowspan; r++) {
+                        if (!occupiedCells[r]) occupiedCells[r] = [];
+                        for (let c = colIndex; c < colIndex + colspan; c++) {
+                            occupiedCells[r][c] = true;
+                        }
+                    }
                 }
                 
                 colIndex += colspan;
             });
         });
+        
+        let maxCol = 0;
+        let maxRow = allRows.length - 1;
+        occupiedCells.forEach(row => {
+            if (row && row.length > maxCol) maxCol = row.length;
+        });
 
-        // 步驟3: 設定工作表範圍
         const range = XLSX.utils.decode_range(XLSX.utils.encode_range({
             s: { c: 0, r: 0 },
-            e: { c: ws['!cols'].length - 1, r: allRows.length - 1 }
+            e: { c: maxCol - 1, r: maxRow }
         }));
         ws['!ref'] = XLSX.utils.encode_range(range);
 
-
-        // 步驟4: 建立 Excel 工作簿
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, ws, "排班表");
         
-        // 步驟5: 產生並下載檔案
         const excelData = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
         const blob = new Blob([excelData], { type: 'application/octet-stream' });
         const downloadLink = document.createElement('a');
@@ -594,9 +814,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
-        URL.revokeObjectURL(downloadLink.href);
     });
-
-    // 啟動頁面時載入模板
+    
+    // 初始化載入模板
     loadTemplates();
 });

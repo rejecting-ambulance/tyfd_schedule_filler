@@ -12,40 +12,40 @@
     <table id="schedule">
         <thead>
             <tr>
-                <th colspan="20" rowspan="2">桃園市政府消防局第二大隊（46人）共同勤務分配表</th>
-                <th colspan="4">114年9月15 星期日</th>
+                <th colspan="26" rowspan="2">桃園市政府消防局第二大隊（46人）共同勤務分配表</th>
+                <th id="dateDisplayCell" colspan="8"></th>
             </tr>
             <tr>
-                <th colspan="4">主管：</th>
+                <th id="managerCell" colspan="8">主管：</th>
             </tr>
-            
         </thead>
         <tbody></tbody>
     </table>
     <h1>勤務排表系統</h1>
-    <p>此系統用於協助排定消防局勤務人員，並可匯出Excel檔案。</p>
-    <p>請選擇模板並點擊人員以啟用或停用，然後點擊「排班」按鈕生成排班表。</p>
+        <p>此系統用於協助排定消防局勤務人員，並可匯出Excel檔案。</p>
+        <p>請選擇模板並點擊人員以啟用或停用，然後點擊「排班」按鈕生成排班表。</p>
 </div>
-
-
 
 <div id="personnel">
     <h3>模板選擇</h3>
     <select id="templateSelect">
-        <option value="">請選擇模板</option>
+        <option value="">載入中...</option>
     </select>
+    
+    <h3>日期選擇</h3>
+    <div class="date-select-container" id="dateSelectContainer"></div>
     
     <div class="mode-switch-container">
         <button id="assignPersons">排班</button>
-        <button id="downloadExcelBtn">下載排班表 (Excel)</button>
-        <label for="modeSwitch">多個卡片模式：</label>
+        <button id="downloadExcelBtn">下載排班表<br>(Excel)</button>
+        <label for="modeSwitch">一格多人：</label>
         <label class="switch">
             <input type="checkbox" id="modeSwitch">
             <span class="slider round"></span>
         </label>
     </div>
 
-    <h3>人員 (點擊啟用 / 停用)</h3>
+    <h3>人員 (點擊服勤 / 休假)</h3>
     <div class="person-grid" id="personGrid"></div>
 </div>
 

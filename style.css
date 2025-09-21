@@ -8,6 +8,8 @@ body {
 #schedule-container {
     overflow-x: auto; /* 讓表格可以水平滾動 */
 }
+
+
 #personnel {
     width: 300px;
     border: 1px solid #ccc;
@@ -18,7 +20,7 @@ body {
 /* 網格佈局 */
 .person-grid {
     display: grid;
-    /* 使用 minmax 確保卡片寬度至少為 90px，且最大不超過 1fr */
+    /* 使用 minmax 確保卡片寬度至少為 70px，且最大不超過 1fr */
     grid-template-columns: repeat(3, minmax(70px, 1fr));
     grid-template-rows: repeat(10, 1fr);
     gap: 5px;
@@ -50,7 +52,7 @@ body {
 
 /* 這裡就是你要求的修改 */
 .person .letter-select {
-    width: 100%; /* 選單寬度設為卡片寬度的50% */
+    width: 100%; /* 選單寬度設為卡片寬度的100% */
     font-size: 11px; /* 調整選單字體大小以適應卡片 */
     box-sizing: border-box;
     background-color: white;
@@ -66,12 +68,14 @@ body {
 table {
     border-collapse: collapse;
     min-width: 1500px;
+    table-layout: fixed;
 }
 th, td {
     border: 1px solid #ccc;
     padding: 6px;
     text-align: center;
-    min-width: 50px;
+    /*min-width: 50px;*/
+    max-width: 50px;
     height: 30px;
 }
 th {
@@ -79,6 +83,12 @@ th {
     position: sticky;
     top: 0;
 }
+
+/* 設定表格標頭的寬度，讓 table-layout: fixed 能正確運作 */
+.fixed-width-th {
+    width: 50px;
+}
+
 .droppable {
     background: #f9f9f9;
     vertical-align: top;
@@ -201,4 +211,10 @@ input:checked + .slider {
 
 input:checked + .slider:before {
     transform: translateX(20px);
+}
+
+#managerCell {
+    text-align: left;
+    /* 選擇性：增加內距讓文字不要緊貼邊緣 */
+    padding-left: 10px; 
 }
